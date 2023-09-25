@@ -5,10 +5,18 @@
 
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
+#include "Interaction/EnemyInterface.h"
 
 AAuraPlayerController::AAuraPlayerController()
 {
 	bReplicates = true;
+}
+
+void AAuraPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	CursorTrace();
 }
 
 void AAuraPlayerController::BeginPlay()
@@ -52,5 +60,49 @@ void AAuraPlayerController::Move(const FInputActionValue& InputActionValue)
 	{
 		ControlledPawn->AddMovementInput(ForwardDirection, InputAxisVector.Y);
 		ControlledPawn->AddMovementInput(RightDirection, InputAxisVector.X);
+	}
+}
+
+void AAuraPlayerController::CursorTrace()
+{
+	FHitResult CursorHit;
+	
+	GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+	if (!CursorHit.bBlockingHit) return;
+
+	PrevActor = CurrActor;
+	CurrActor = Cast<IEnemyInterface>(CursorHit.GetActor());
+
+	/**
+	 * Line trace from cursor. There are several scenarios:
+	 * a) Previous actor is null, current actor is null.
+	 *		- Do nothing.
+	 * b) Previous actor is null, current actor is valid.
+	 *		- Highlight current actor.
+	 * c) Previous actor is valid, current actor is null.
+	 *		 - Unhighlight previous actor.
+	 * d) Previous actor is valid, current actor is valid, and they are not the same.
+	 *		 - Unhighlight previous actor.
+	 *		 - Highlight current actor.
+	 * e) Previous actor is valid, current actor is valid, and they are the same.
+	 *		 - Do nothing.
+	 */
+
+	if (PrevActor == nullptr)
+	{
+		if (CurrActor != nullptr)
+		{
+			CurrActor->HighlightActor(); // b)
+		} // a)
+	} else
+	{
+		if (CurrActor == nullptr)
+		{
+			PrevActor->UnhighlightActor(); // c)
+		} else if (CurrActor != PrevActor)
+		{
+			PrevActor->UnhighlightActor(); // d)
+			CurrActor->HighlightActor();
+		} // e
 	}
 }
